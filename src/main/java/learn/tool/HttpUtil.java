@@ -1,14 +1,17 @@
 package learn.tool;
 
+
 import learn.enity.HttpResponse;
 import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.*;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
@@ -26,7 +29,7 @@ import java.util.Set;
  */
 public class HttpUtil {
 
-    private RequestConfig requestConfig = RequestConfig.custom()
+    private static RequestConfig requestConfig = RequestConfig.custom()
         .setSocketTimeout(1000)
         .setConnectTimeout(1000)
         .setConnectionRequestTimeout(1000)
@@ -45,23 +48,27 @@ public class HttpUtil {
         return instance;
     }
 
-    /*public static HttpResponse httpPostForm(String url, Map<String,String> params, Map<String,String> headers ) {
-        return HttpUtil.httpPostForm(url,params,headers,"utf-8");
-    }*/
-
+    /**
+     * HttpPost请求
+     * @param url url
+     * @param params 参数
+     * @param headers 头信息
+     * @param encode 编码
+     * @return HttpResponse
+     */
     public static HttpResponse httpPostForm(String url, Map<String,String> params, Map<String,String> headers, String encode){
         HttpResponse response = new HttpResponse();
         if(encode == null){
             encode = "utf-8";
         }
-        //HttpClients.createDefault()等价于 HttpClientBuilder.create().build();
         CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
-        HttpPost httpost = new HttpPost(url);
+        HttpPost httpPost = new HttpPost(url);
+        httpPost.setConfig(requestConfig);
 
         //设置header
         if (headers != null && headers.size() > 0) {
             for (Map.Entry<String, String> entry : headers.entrySet()) {
-                httpost.setHeader(entry.getKey(),entry.getValue());
+                httpPost.setHeader(entry.getKey(),entry.getValue());
             }
         }
         //组织请求参数
@@ -73,14 +80,79 @@ public class HttpUtil {
             }
         }
         try {
-            httpost.setEntity(new UrlEncodedFormEntity(paramList, encode));
+            httpPost.setEntity(new UrlEncodedFormEntity(paramList, encode));
         } catch (UnsupportedEncodingException e1) {
             e1.printStackTrace();
         }
         String content = null;
         CloseableHttpResponse httpResponse = null;
         try {
-            httpResponse = closeableHttpClient.execute(httpost);
+            httpResponse = closeableHttpClient.execute(httpPost);
+            HttpEntity entity = httpResponse.getEntity();
+            content = EntityUtils.toString(entity, encode);
+            response.setBody(content);
+            response.setHeaders(httpResponse.getAllHeaders());
+            response.setReasonPhrase(httpResponse.getStatusLine().getReasonPhrase());
+            response.setStatusCode(httpResponse.getStatusLine().getStatusCode());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally{
+            try {
+                if ( httpResponse != null )
+                    httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {  //关闭连接、释放资源
+            closeableHttpClient.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
+    /**
+     * 自定义RequestConfig参数
+     * @param url url地址
+     * @param params 参数
+     * @param headers 头信息
+     * @param encode 编码
+     * @param requestConfig 连接配置
+     * @return HttpResponse
+     */
+    public static HttpResponse httpPostForm(String url, Map<String,String> params, Map<String,String> headers, String encode, RequestConfig requestConfig){
+        HttpResponse response = new HttpResponse();
+        if(encode == null){
+            encode = "utf-8";
+        }
+        CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+        HttpPost httpPost = new HttpPost(url);
+        httpPost.setConfig(requestConfig);
+
+        //设置header
+        if (headers != null && headers.size() > 0) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                httpPost.setHeader(entry.getKey(),entry.getValue());
+            }
+        }
+        //组织请求参数
+        List<NameValuePair> paramList = new ArrayList<NameValuePair>();
+        if(params != null && params.size() > 0){
+            Set<String> keySet = params.keySet();
+            for(String key : keySet) {
+                paramList.add(new BasicNameValuePair(key, params.get(key)));
+            }
+        }
+        try {
+            httpPost.setEntity(new UrlEncodedFormEntity(paramList, encode));
+        } catch (UnsupportedEncodingException e1) {
+            e1.printStackTrace();
+        }
+        String content = null;
+        CloseableHttpResponse httpResponse = null;
+        try {
+            httpResponse = closeableHttpClient.execute(httpPost);
             HttpEntity entity = httpResponse.getEntity();
             content = EntityUtils.toString(entity, encode);
             response.setBody(content);
@@ -140,6 +212,77 @@ public class HttpUtil {
             url = url + "?" + getQuery;
         }
         HttpGet httpGet = new HttpGet(url);
+        httpGet.setConfig(requestConfig);
+        //设置header
+        if (headers != null && headers.size() > 0) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                httpGet.setHeader(entry.getKey(),entry.getValue());
+            }
+        }
+        String content = null;
+        CloseableHttpResponse  httpResponse = null;
+        try {
+            httpResponse = closeableHttpClient.execute(httpGet);
+            HttpEntity entity = httpResponse.getEntity();
+            content = EntityUtils.toString(entity, encode);
+            response.setBody(content);
+            response.setHeaders(httpResponse.getAllHeaders());
+            response.setReasonPhrase(httpResponse.getStatusLine().getReasonPhrase());
+            response.setStatusCode(httpResponse.getStatusLine().getStatusCode());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally{
+            try {
+                if ( httpResponse != null )
+                    httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {  //关闭连接、释放资源
+            closeableHttpClient.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
+
+    /**
+     * httpGet 请求 -- 自定义Config方式
+     * @param url url地址
+     * @param params 参数map
+     * @param headers 头信息
+     * @param encode 编码信息
+     * @return HttpResponse
+     */
+    public static HttpResponse httpGetForm(String url,Map<String,String> params, Map<String,String> headers,String encode,RequestConfig requestConfig){
+        HttpResponse response = new HttpResponse();
+        if(encode == null){
+            encode = "utf-8";
+        }
+        CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+
+        //组织请求参数
+        List<NameValuePair> paramList = new ArrayList <NameValuePair>();
+        if(params != null && params.size() > 0){
+            Set<String> keySet = params.keySet();
+            for(String key : keySet) {
+                paramList.add(new BasicNameValuePair(key, params.get(key)));
+            }
+        }
+        String getQuery=null;
+        try {
+            getQuery = EntityUtils.toString(new UrlEncodedFormEntity(paramList, encode));
+        } catch (Exception e1) {
+            e1.printStackTrace();
+        }
+
+        if ( getQuery != null && !getQuery.equals("")) {
+            url = url + "?" + getQuery;
+        }
+        HttpGet httpGet = new HttpGet(url);
+        httpGet.setConfig(requestConfig);
         //设置header
         if (headers != null && headers.size() > 0) {
             for (Map.Entry<String, String> entry : headers.entrySet()) {
@@ -182,13 +325,14 @@ public class HttpUtil {
      * @param encode 编码
      * @return HttpResponse
      */
-    public HttpResponse httpDelete(String url,  Map<String,String> headers, String encode) {
+    public static HttpResponse httpDelete(String url,  Map<String,String> headers, String encode) {
         HttpResponse response = new HttpResponse();
         if(encode == null){
             encode = "utf-8";
         }
         CloseableHttpClient closeableHttpClient  = HttpClientBuilder.create().build();
         HttpDelete httpDelete = new HttpDelete(url);
+        httpDelete.setConfig(requestConfig);
         if ( headers != null && headers.size() > 0 ) {
             for ( String key :headers.keySet() ){
                 httpDelete.setHeader( key, headers.get(key) );
@@ -222,28 +366,19 @@ public class HttpUtil {
 
 
     /**
-     * httpDelete 带有body方式
+     * httpDelete 以Query方式传递参数 : 注意url最大长度，参数过多请使用 httpDeleteWithJson 方法
      * @param url url
      * @param params 参数map
      * @param headers 头信息
      * @param encode 解码字符集
      * @return HttpResponse
      */
-    public static HttpResponse httpDeleteFormWithBody(String url, Map<String,String> params, Map<String,String> headers, String encode){
+    public static HttpResponse httpDeleteFormWithQuery(String url, Map<String,String> params, Map<String,String> headers, String encode){
         HttpResponse response = new HttpResponse();
         if(encode == null){
             encode = "utf-8";
         }
-        //HttpClients.createDefault()等价于 HttpClientBuilder.create().build();
         CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
-        HttpDeleteWithBody httpDeleteWithBody = new HttpDeleteWithBody(url);
-
-        //设置header
-        if (headers != null && headers.size() > 0) {
-            for (Map.Entry<String, String> entry : headers.entrySet()) {
-                httpDeleteWithBody.setHeader(entry.getKey(),entry.getValue());
-            }
-        }
 
         //组织请求参数
         List<NameValuePair> paramList = new ArrayList<NameValuePair>();
@@ -253,8 +388,159 @@ public class HttpUtil {
                 paramList.add(new BasicNameValuePair(key, params.get(key)));
             }
         }
+
+        String getQuery=null;
         try {
-            httpDeleteWithBody.setEntity(new UrlEncodedFormEntity(paramList, encode));
+            getQuery = EntityUtils.toString(new UrlEncodedFormEntity(paramList, encode));
+        } catch (Exception e1) {
+            e1.printStackTrace();
+        }
+
+        if ( getQuery != null && !getQuery.equals("")) {
+            url = url + "?" + getQuery;
+        }
+
+        HttpDeleteWithBody httpDeleteWithBody = new HttpDeleteWithBody(url);
+        httpDeleteWithBody.setConfig(requestConfig);
+
+        //设置header
+        if (headers != null && headers.size() > 0) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                httpDeleteWithBody.setHeader(entry.getKey(),entry.getValue());
+            }
+        }
+
+        String content = null;
+        CloseableHttpResponse httpResponse = null;
+        try {
+            httpResponse = closeableHttpClient.execute(httpDeleteWithBody);
+            HttpEntity entity = httpResponse.getEntity();
+            content = EntityUtils.toString(entity, encode);
+            response.setBody(content);
+            response.setHeaders(httpResponse.getAllHeaders());
+            response.setReasonPhrase(httpResponse.getStatusLine().getReasonPhrase());
+            response.setStatusCode(httpResponse.getStatusLine().getStatusCode());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally{
+            try {
+                if ( httpResponse != null )
+                    httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {  //关闭连接、释放资源
+            closeableHttpClient.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
+
+    /**
+     * 自定义Config
+     * httpDelete 以Query方式传递参数 : 注意url最大长度，参数过多请使用 httpDeleteWithJson 方法
+     * @param url url
+     * @param params 参数map
+     * @param headers 头信息
+     * @param encode 解码字符集
+     * @return HttpResponse
+     */
+    public static HttpResponse httpDeleteFormWithQuery(String url, Map<String,String> params, Map<String,String> headers, String encode,RequestConfig requestConfig){
+        HttpResponse response = new HttpResponse();
+        if(encode == null){
+            encode = "utf-8";
+        }
+        CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+
+        //组织请求参数
+        List<NameValuePair> paramList = new ArrayList<NameValuePair>();
+        if(params != null && params.size() > 0){
+            Set<String> keySet = params.keySet();
+            for(String key : keySet) {
+                paramList.add(new BasicNameValuePair(key, params.get(key)));
+            }
+        }
+
+        String getQuery=null;
+        try {
+            getQuery = EntityUtils.toString(new UrlEncodedFormEntity(paramList, encode));
+        } catch (Exception e1) {
+            e1.printStackTrace();
+        }
+
+        if ( getQuery != null && !getQuery.equals("")) {
+            url = url + "?" + getQuery;
+        }
+
+        HttpDeleteWithBody httpDeleteWithBody = new HttpDeleteWithBody(url);
+        httpDeleteWithBody.setConfig(requestConfig);
+
+        //设置header
+        if (headers != null && headers.size() > 0) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                httpDeleteWithBody.setHeader(entry.getKey(),entry.getValue());
+            }
+        }
+
+        String content = null;
+        CloseableHttpResponse httpResponse = null;
+        try {
+            httpResponse = closeableHttpClient.execute(httpDeleteWithBody);
+            HttpEntity entity = httpResponse.getEntity();
+            content = EntityUtils.toString(entity, encode);
+            response.setBody(content);
+            response.setHeaders(httpResponse.getAllHeaders());
+            response.setReasonPhrase(httpResponse.getStatusLine().getReasonPhrase());
+            response.setStatusCode(httpResponse.getStatusLine().getStatusCode());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally{
+            try {
+                if ( httpResponse != null )
+                    httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {  //关闭连接、释放资源
+            closeableHttpClient.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
+
+
+
+    /**
+     * httpDelete 带有body方式
+     * @param url url
+     * @param json 对象json
+     * @param headers 头信息
+     * @param encode 解码字符集
+     * @return HttpResponse
+     */
+    public static HttpResponse httpDeleteWithJson(String url, String json, Map<String,String> headers, String encode){
+        HttpResponse response = new HttpResponse();
+        if(encode == null){
+            encode = "utf-8";
+        }
+        CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+        HttpDeleteWithBody httpDeleteWithBody = new HttpDeleteWithBody(url);
+        httpDeleteWithBody.setConfig(requestConfig);
+        //设置header
+        if (headers != null && headers.size() > 0) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                httpDeleteWithBody.setHeader(entry.getKey(),entry.getValue());
+            }
+        }
+        httpDeleteWithBody.setHeader(new BasicHeader("Content-Type", "application/json;charset=utf-8"));
+        try {
+            httpDeleteWithBody.setEntity(new StringEntity(json));
         } catch (UnsupportedEncodingException e1) {
             e1.printStackTrace();
         }
@@ -287,8 +573,68 @@ public class HttpUtil {
     }
 
 
+
     /**
-     * HttpDeleteWithBody
+     * httpDelete 带有body方式 自定义Config信息
+     * @param url url
+     * @param json 对象json
+     * @param headers 头信息
+     * @param encode 解码字符集
+     * @return HttpResponse
+     */
+    public static HttpResponse httpDeleteWithJson(String url, String json, Map<String,String> headers, String encode,RequestConfig requestConfig){
+        HttpResponse response = new HttpResponse();
+        if(encode == null){
+            encode = "utf-8";
+        }
+        CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+        HttpDeleteWithBody httpDeleteWithBody = new HttpDeleteWithBody(url);
+        httpDeleteWithBody.setConfig(requestConfig);
+        //设置header
+        if (headers != null && headers.size() > 0) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                httpDeleteWithBody.setHeader(entry.getKey(),entry.getValue());
+            }
+        }
+        httpDeleteWithBody.setHeader(new BasicHeader("Content-Type", "application/json;charset=utf-8"));
+        try {
+            httpDeleteWithBody.setEntity(new StringEntity(json));
+        } catch (UnsupportedEncodingException e1) {
+            e1.printStackTrace();
+        }
+        String content = null;
+        CloseableHttpResponse httpResponse = null;
+        try {
+            httpResponse = closeableHttpClient.execute(httpDeleteWithBody);
+            HttpEntity entity = httpResponse.getEntity();
+            content = EntityUtils.toString(entity, encode);
+            response.setBody(content);
+            response.setHeaders(httpResponse.getAllHeaders());
+            response.setReasonPhrase(httpResponse.getStatusLine().getReasonPhrase());
+            response.setStatusCode(httpResponse.getStatusLine().getStatusCode());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally{
+            try {
+                if ( httpResponse != null )
+                    httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {  //关闭连接、释放资源
+            closeableHttpClient.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
+
+
+
+    /**
+     * HttpPut
      * @param url url
      * @param params 参数map
      * @param headers 头信息
@@ -300,9 +646,9 @@ public class HttpUtil {
         if(encode == null){
             encode = "utf-8";
         }
-        //HttpClients.createDefault()等价于 HttpClientBuilder.create().build();
         CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
         HttpPut httpPut = new HttpPut(url);
+        httpPut.setConfig(requestConfig);
 
         //设置header
         if (headers != null && headers.size() > 0) {
@@ -351,4 +697,71 @@ public class HttpUtil {
         }
         return response;
     }
+
+
+    /**
+     * HttpPut 自定义Config
+     * @param url url
+     * @param params 参数map
+     * @param headers 头信息
+     * @param encode 解码字符集
+     * @return HttpResponse
+     */
+    public static HttpResponse httpPutForm(String url, Map<String,String> params, Map<String,String> headers, String encode,RequestConfig requestConfig){
+        HttpResponse response = new HttpResponse();
+        if(encode == null){
+            encode = "utf-8";
+        }
+        CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+        HttpPut httpPut = new HttpPut(url);
+        httpPut.setConfig(requestConfig);
+
+        //设置header
+        if (headers != null && headers.size() > 0) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                httpPut.setHeader(entry.getKey(),entry.getValue());
+            }
+        }
+
+        //组织请求参数
+        List<NameValuePair> paramList = new ArrayList<NameValuePair>();
+        if(params != null && params.size() > 0){
+            Set<String> keySet = params.keySet();
+            for(String key : keySet) {
+                paramList.add(new BasicNameValuePair(key, params.get(key)));
+            }
+        }
+        try {
+            httpPut.setEntity(new UrlEncodedFormEntity(paramList, encode));
+        } catch (UnsupportedEncodingException e1) {
+            e1.printStackTrace();
+        }
+        String content = null;
+        CloseableHttpResponse httpResponse = null;
+        try {
+            httpResponse = closeableHttpClient.execute(httpPut);
+            HttpEntity entity = httpResponse.getEntity();
+            content = EntityUtils.toString(entity, encode);
+            response.setBody(content);
+            response.setHeaders(httpResponse.getAllHeaders());
+            response.setReasonPhrase(httpResponse.getStatusLine().getReasonPhrase());
+            response.setStatusCode(httpResponse.getStatusLine().getStatusCode());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally{
+            try {
+                if ( httpResponse != null )
+                    httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {  //关闭连接、释放资源
+            closeableHttpClient.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
 }
